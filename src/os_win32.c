@@ -170,7 +170,11 @@ static PFNGCKLN    s_pfnGetConsoleKeyboardLayoutName = NULL;
 #ifdef FEAT_MBYTE
 LRESULT (WINAPI *pDispatchMessage)(CONST MSG *) = DispatchMessage;
 BOOL (WINAPI *pGetMessage)(LPMSG, HWND, UINT, UINT) = GetMessage;
-BOOL (WINAPI *pIsDialogMessage)(HWND, LPMSG) = IsDialogMessage;
+#ifdef FEAT_NANO
+   BOOL (WINAPI *pIsDialogMessage)(HWND, LPMSG) = IsDialogMessageW;
+#else
+   BOOL (WINAPI *pIsDialogMessage)(HWND, LPMSG) = IsDialogMessage;
+#endif
 BOOL (WINAPI *pPeekMessage)(LPMSG, HWND, UINT, UINT, UINT) = PeekMessage;
 #endif
 
@@ -914,12 +918,19 @@ win32_kbd_patch_key(
     {
 	CHAR szKLID[KL_NAMELENGTH];
 
-	if ((*s_pfnGetConsoleKeyboardLayoutName)(szKLID))
-	    (void)LoadKeyboardLayout(szKLID, KLF_ACTIVATE);
+	if ((*s_pfnGetConsoleKeyboardLayoutName)(szKLID)){
+	   #ifndef FEAT_NANO
+	      (void)LoadKeyboardLayout(szKLID, KLF_ACTIVATE);
+           #endif   
+        }
     }
 
     /* Clear any pending dead keys */
-    ToUnicode(VK_SPACE, MapVirtualKey(VK_SPACE, 0), abKeystate, awAnsiCode, 2, 0);
+    #ifdef FEAT_NANO
+       ToUnicodeEx(VK_SPACE, MapVirtualKey(VK_SPACE, 0), abKeystate, awAnsiCode, 2, 0, NULL);
+    #else
+       ToUnicode(VK_SPACE, MapVirtualKey(VK_SPACE, 0), abKeystate, awAnsiCode, 2, 0);
+    #endif
 
     if (uMods & SHIFT_PRESSED)
 	abKeystate[VK_SHIFT] = 0x80;
@@ -931,10 +942,14 @@ win32_kbd_patch_key(
 	abKeystate[VK_CONTROL] = abKeystate[VK_LCONTROL] =
 	    abKeystate[VK_MENU] = abKeystate[VK_RMENU] = 0x80;
     }
-
-    s_iIsDead = ToUnicode(pker->wVirtualKeyCode, pker->wVirtualScanCode,
+    
+    #ifdef FEAT_NANO
+       s_iIsDead = ToUnicodeEx(pker->wVirtualKeyCode, pker->wVirtualScanCode,
+			abKeystate, awAnsiCode, 2, 0, NULL);
+    #else
+       s_iIsDead = ToUnicode(pker->wVirtualKeyCode, pker->wVirtualScanCode,
 			abKeystate, awAnsiCode, 2, 0);
-
+    #endif
     if (s_iIsDead > 0)
 	pker->UChar = (WCHAR) awAnsiCode[0];
 
@@ -1179,9 +1194,14 @@ decode_mouse_event(
     const DWORD LEFT_RIGHT = LEFT | RIGHT;
 
     int nButton;
-
+    
+    #ifdef FEAT_NANO
+    if (cButtons == 0)
+	cButtons = 2;
+    #else
     if (cButtons == 0 && !GetNumberOfConsoleMouseButtons(&cButtons))
 	cButtons = 2;
+    #endif    
 
     if (!g_fMouseAvail || !g_fMouseActive)
     {
@@ -2474,8 +2494,14 @@ SaveConsoleTitleAndIcon(void)
 	return;
 
     /* Extract the first icon contained in the Vim executable. */
-    if (mch_icon_load((HANDLE *)&g_hVimIcon) == FAIL || g_hVimIcon == NULL)
-	g_hVimIcon = ExtractIcon(NULL, (LPCSTR)exe_name, 0);
+    if (mch_icon_load((HANDLE *)&g_hVimIcon) == FAIL || g_hVimIcon == NULL){
+	#ifdef FEAT_NANO
+	  g_hVimIcon = ExtractIconW(NULL, (LPCSTR)exe_name, 0);
+	#else
+	  g_hVimIcon = ExtractIcon(NULL, (LPCSTR)exe_name, 0);
+	#endif
+	
+    }
     if (g_hVimIcon != NULL)
 	g_fCanChangeIcon = TRUE;
 }

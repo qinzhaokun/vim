@@ -1262,13 +1262,23 @@ PrintDlgProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 		for (i = IDC_PRINTTEXT1; i <= IDC_PROGRESS; i++)
 		{
 		    SendDlgItemMessage(hDlg, i, WM_SETFONT, (WPARAM)hfont, 1);
+		    #ifdef FEAT_NANO
+                       if (GetDlgItemTextW(hDlg,i, buff, sizeof(buff)))
+			   vimSetDlgItemText(hDlg,i, (char_u *)_(buff));
+                    #else
 		    if (GetDlgItemText(hDlg,i, buff, sizeof(buff)))
 			vimSetDlgItemText(hDlg,i, (char_u *)_(buff));
+                    #endif
 		}
 		SendDlgItemMessage(hDlg, IDCANCEL,
 						WM_SETFONT, (WPARAM)hfont, 1);
-		if (GetDlgItemText(hDlg,IDCANCEL, buff, sizeof(buff)))
-		    vimSetDlgItemText(hDlg,IDCANCEL, (char_u *)_(buff));
+		#ifdef FEAT_NANO
+                       if (GetDlgItemTextW(hDlg,IDCANCEL, buff, sizeof(buff)))
+		    	  vimSetDlgItemText(hDlg,IDCANCEL, (char_u *)_(buff));
+                    #else
+		       if (GetDlgItemText(hDlg,IDCANCEL, buff, sizeof(buff)))
+		          vimSetDlgItemText(hDlg,IDCANCEL, (char_u *)_(buff));
+                    #endif
 	    }
 #endif
 	    SetWindowText(hDlg, (LPCSTR)szAppName);
@@ -1435,7 +1445,12 @@ prt_get_cpl(void)
     int		rev_offset;
     int		dpi;
 
-    GetTextMetrics(prt_dlg.hDC, &prt_tm);
+    #ifdef FEAT_NANO
+       GetTextMetricsW(prt_dlg.hDC, &prt_tm);
+    #else
+       GetTextMetrics(prt_dlg.hDC, &prt_tm);
+    #endif
+
     prt_line_height = prt_tm.tmHeight + prt_tm.tmExternalLeading;
 
     hr	    = GetDeviceCaps(prt_dlg.hDC, HORZRES);
@@ -1729,7 +1744,10 @@ mch_print_begin(prt_settings_T *psettings)
 
     hDlgPrint = CreateDialog(GetModuleHandle(NULL), TEXT("PrintDlgBox"),
 					     prt_dlg.hwndOwner, PrintDlgProc);
-    SetAbortProc(prt_dlg.hDC, AbortProc);
+    #ifndef FEAT_NANO
+       SetAbortProc(prt_dlg.hDC, AbortProc);
+    #endif
+    
     wsprintf(szBuffer, _("Printing '%s'"), gettail(psettings->jobname));
     vimSetDlgItemText(hDlgPrint, IDC_PRINTTEXT1, (char_u *)szBuffer);
 
@@ -1827,9 +1845,17 @@ mch_print_text_out(char_u *p, int len)
 	return ret;
     }
 #endif
-    TextOut(prt_dlg.hDC, prt_pos_x + prt_left_margin,
+
+#ifdef FEAT_NANO
+   TextOutW(prt_dlg.hDC, prt_pos_x + prt_left_margin,
 					  prt_pos_y + prt_top_margin,
 					  (LPCSTR)p, len);
+#else
+   TextOut(prt_dlg.hDC, prt_pos_x + prt_left_margin,
+					  prt_pos_y + prt_top_margin,
+					  (LPCSTR)p, len);
+#endif
+    
 #ifndef FEAT_PROPORTIONAL_FONTS
     prt_pos_x += len * prt_tm.tmAveCharWidth;
     return (prt_pos_x + prt_left_margin + prt_tm.tmAveCharWidth
@@ -1854,8 +1880,10 @@ mch_print_set_font(int iBold, int iItalic, int iUnderline)
     void
 mch_print_set_bg(long_u bgcol)
 {
-    SetBkColor(prt_dlg.hDC, GetNearestColor(prt_dlg.hDC,
+    #ifndef FEAT_NANO
+       SetBkColor(prt_dlg.hDC, GetNearestColor(prt_dlg.hDC,
 						   swap_me((COLORREF)bgcol)));
+    #endif
     /*
      * With a white background we can draw characters transparent, which is
      * good for italic characters that overlap to the next char cell.
@@ -1869,8 +1897,10 @@ mch_print_set_bg(long_u bgcol)
     void
 mch_print_set_fg(long_u fgcol)
 {
-    SetTextColor(prt_dlg.hDC, GetNearestColor(prt_dlg.hDC,
+    #ifndef FEAT_NANO
+      SetTextColor(prt_dlg.hDC, GetNearestColor(prt_dlg.hDC,
 						   swap_me((COLORREF)fgcol)));
+    #endif
 }
 
 #endif /*FEAT_PRINTER && !FEAT_POSTSCRIPT*/

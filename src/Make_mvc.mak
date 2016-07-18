@@ -306,6 +306,10 @@ WP64CHECK = /Wp64
 FEATURES = HUGE
 !endif
 
+!if "$(NANO)"==""
+FEATURES = no
+!endif
+
 !ifndef CTAGS
 CTAGS = ctags
 !endif
@@ -986,6 +990,13 @@ CFLAGS = $(CFLAGS) -DMSWINPS
 # FEATURES: TINY, SMALL, NORMAL, BIG or HUGE
 #
 CFLAGS = $(CFLAGS) -DFEAT_$(FEATURES)
+
+#
+# NANO: yes, no
+#
+!if "$(NANO)" == "yes"
+CFLAGS = $(CFLAGS) -DFEAT_NANO
+!endif # NANO
 
 #
 # Always generate the .pdb file, so that we get debug symbols that can be used
